@@ -1,0 +1,93 @@
+{{- if .Values.httproutes -}}
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: "{{ .Values.appName }}"
+  labels:
+    app: "{{ .Values.appName }}"
+    group: microcks
+spec:
+  parentRefs:
+  - name: "{{ .Values.gateway.name }}"
+    namespace: "{{ .Values.gateway.namespace | default (print .Release.namespace) }}"
+  hostnames:
+  - "{{ .Values.microcks.url }}"
+  rules:
+  - matches:
+    - path:
+        value: /
+    backendRefs:
+    - name: "{{ .Values.appName }}"
+      port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: "{{ .Values.appName }}-grpc"
+  labels:
+    app: "{{ .Values.appName }}"
+    group: microcks
+spec:
+  parentRefs:
+  - name: "{{ .Values.gateway.name }}"
+    namespace: "{{ .Values.gateway.namespace | default (print .Release.namespace) }}"
+  hostnames:
+    - {{ ( include "microcks-grpc.url" . ) }}
+  rules:
+  - matches:
+     - path:
+        value: /
+    backendRefs:
+    - name:  "{{ .Values.appName }}-grpc"
+      port: 9090
+{{- if .Values.keycloak.install }}
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: "{{ .Values.appName }}-keycloak"
+  labels:
+    app: "{{ .Values.appName }}"
+    group: microcks
+spec:
+  parentRefs:
+  - name: "{{ .Values.gateway.name }}"
+    namespace: "{{ .Values.gateway.namespace | default (print .Release.namespace) }}"
+  hostnames:
+  - "{{ .Values.keycloak.url }}"
+  rules:
+  - matches:
+    - paths:
+        value: /
+    backendRefs:
+    - name: "{{ .Values.appName }}-keycloak"
+      port: 8080
+{{- end }}
+{{- if and .Values.features.async.enabled }}
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: "{{ .Values.appName }}-ws"
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3000"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3000"
+  labels:
+    app: "{{ .Values.appName }}"
+    group: microcks
+spec:
+  parentRefs:
+  - name: "{{ .Values.gateway.name }}"
+    namespace: "{{ .Values.gateway.namespace | default (print .Release.namespace) }}"
+  hostnames:
+  - "{{ ( include "microcks-ws.url" . ) }}"
+  rules:
+  - matches:
+    - paths:
+        value: /api/ws
+    backendRefs:
+    - name: "{{ .Values.appName }}-async-minion"
+      port: 8080
+{{- end }}
+{{- end -}}

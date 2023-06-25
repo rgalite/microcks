@@ -1,0 +1,52 @@
+{{- if .Values.gateway.install -}}
+kind: Gateway
+apiVersion: gateway.networking.k8s.io/v1beta1
+metadata:
+  name: "{{ .Values.gateway.name }}"
+  annotations:
+  {{- with .Values.gateway.gatewayAnnotations }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  gatewayClassName: "{{ .Values.gateway.className }}"
+  listeners:
+  - name: "{{ .Values.appName }}-https"
+    protocol: HTTPS
+    port: 443
+    hostname: "{{ .Values.microcks.url }}"
+    {{- if .Values.microcks.useSelfCert }}
+    tls:
+      certificateRefs:
+      - kind: Secret
+        name: {{ .Values.microcks.ingressSecretRef | default (print .Values.appName "-microcks-ingress-secret") }}
+    {{- end }}
+  - name: "{{ .Values.appName }}-grpc-https"
+    protocol: HTTPS
+    port: 443
+    hostname: {{ ( include "microcks-grpc.url" . ) }}
+    {{- if .Values.microcks.useSelfCert }}
+    tls:
+      mode: Passthrough
+    {{- end }}
+  - name: "{{ .Values.appName }}-keycloak-https"
+    protocol: HTTPS
+    port: 443
+    hostname: "{{ .Values.keycloak.url }}"
+    {{- if .Values.keycloak.useSelfCert }}
+    tls:
+      mode: Passthrough
+      certificateRefs:
+      - kind: Secret
+        name: {{ .Values.keycloak.ingressSecretRef | default (print .Values.appName "-keycloak-ingress-secret") }}
+    {{- end }}
+  - name: "{{ .Values.appName }}-ws-https"
+    protocol: HTTPS
+    port: 443
+    hostname: "{{ ( include "microcks-ws.url" . ) }}"
+    {{- if .Values.features.async.ws.useSelfCert }}
+    tls:
+      certificateRefs:
+      - kind: Secret
+        name: {{ .Values.features.async.ws.ingressSecretRef | default (print .Values.appName "-microcks-ws-ingress-secret") }}
+    {{- end }}
+{{- end -}}
